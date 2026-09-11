@@ -1,3 +1,4 @@
+com/crowdinfra/demand/service/CommentService.class
 com/crowdinfra/demand/repository/DemandRepositoryCustom.class
 com/crowdinfra/demand/model/Demand$Status.class
 com/crowdinfra/demand/model/Comment.class
@@ -9,6 +10,8 @@ com/crowdinfra/demand/repository/DemandRepository.class
 com/crowdinfra/demand/service/FileStorageService.class
 com/crowdinfra/demand/model/Demand.class
 com/crowdinfra/demand/model/Demand$DemandBuilder.class
+com/crowdinfra/demand/controller/CommentController.class
+com/crowdinfra/demand/repository/CommentRepository.class
 com/crowdinfra/demand/controller/AdminDemandController.class
 com/crowdinfra/demand/model/Comment$CommentBuilder.class
 com/crowdinfra/demand/repository/DemandRepositoryCustomImpl.class

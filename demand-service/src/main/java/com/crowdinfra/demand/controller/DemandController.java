@@ -74,4 +74,13 @@ public class DemandController {
         demandService.deleteDemand(id, userId, userRole);
         return ResponseEntity.noContent().build();
     }
+
+    @PostMapping("/{id}/vote")
+    public ResponseEntity<Demand> toggleUpvote(
+            @PathVariable String id,
+            @RequestHeader("X-User-Id") String userId) {
+        
+        Demand updated = demandService.toggleUpvote(id, userId);
+        return ResponseEntity.ok(updated);
+    }
 }

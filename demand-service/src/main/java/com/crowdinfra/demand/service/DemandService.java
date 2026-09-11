@@ -96,4 +96,23 @@ public class DemandService {
         existing.setUpdatedAt(LocalDateTime.now());
         return demandRepository.save(existing);
     }
+
+    public Demand toggleUpvote(String id, String userId) {
+        Demand existing = demandRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Demand not found"));
+
+        List<String> upvotedBy = existing.getUpvotedBy();
+        if (upvotedBy == null) {
+            upvotedBy = new ArrayList<>();
+        }
+        if (upvotedBy.contains(userId)) {
+            upvotedBy.remove(userId);
+            existing.setUpvoteCount(Math.max(0, existing.getUpvoteCount() - 1));
+        } else {
+            upvotedBy.add(userId);
+            existing.setUpvoteCount(existing.getUpvoteCount() + 1);
+        }
+        existing.setUpvotedBy(upvotedBy);
+        return demandRepository.save(existing);
+    }
 }
