@@ -1,7 +1,12 @@
-com/crowdinfra/demand/model/Demand$DemandBuilder.class
 com/crowdinfra/demand/model/Demand$Status.class
 com/crowdinfra/demand/model/Comment.class
+com/crowdinfra/demand/service/DemandService.class
 com/crowdinfra/demand/DemandServiceApplication.class
+com/crowdinfra/demand/controller/DemandController.class
+com/crowdinfra/demand/repository/DemandRepository.class
+com/crowdinfra/demand/service/FileStorageService.class
+com/crowdinfra/demand/model/Demand.class
+com/crowdinfra/demand/model/Demand$DemandBuilder.class
+com/crowdinfra/demand/controller/AdminDemandController.class
 com/crowdinfra/demand/model/Comment$CommentBuilder.class
 com/crowdinfra/demand/model/Demand$Category.class
-com/crowdinfra/demand/model/Demand.class
