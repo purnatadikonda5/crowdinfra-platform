@@ -3,6 +3,9 @@
 /Users/purna/Desktop/infra/crowdinfra-platform/demand-service/src/main/java/com/crowdinfra/demand/repository/DemandRepository.java
 /Users/purna/Desktop/infra/crowdinfra-platform/demand-service/src/main/java/com/crowdinfra/demand/model/Comment.java
 /Users/purna/Desktop/infra/crowdinfra-platform/demand-service/src/main/java/com/crowdinfra/demand/model/Demand.java
+/Users/purna/Desktop/infra/crowdinfra-platform/demand-service/src/main/java/com/crowdinfra/demand/repository/DemandRepositoryCustom.java
 /Users/purna/Desktop/infra/crowdinfra-platform/demand-service/src/main/java/com/crowdinfra/demand/DemandServiceApplication.java
 /Users/purna/Desktop/infra/crowdinfra-platform/demand-service/src/main/java/com/crowdinfra/demand/controller/AdminDemandController.java
+/Users/purna/Desktop/infra/crowdinfra-platform/demand-service/src/main/java/com/crowdinfra/demand/model/ClusterDto.java
 /Users/purna/Desktop/infra/crowdinfra-platform/demand-service/src/main/java/com/crowdinfra/demand/service/FileStorageService.java
+/Users/purna/Desktop/infra/crowdinfra-platform/demand-service/src/main/java/com/crowdinfra/demand/repository/DemandRepositoryCustomImpl.java

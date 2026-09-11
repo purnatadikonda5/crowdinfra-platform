@@ -1,8 +1,11 @@
 package com.crowdinfra.demand.service;
 
+import com.crowdinfra.demand.model.ClusterDto;
 import com.crowdinfra.demand.model.Demand;
 import com.crowdinfra.demand.repository.DemandRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -11,6 +14,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -18,6 +22,18 @@ public class DemandService {
 
     private final DemandRepository demandRepository;
     private final FileStorageService fileStorageService;
+
+    public Page<Demand> getDemands(Demand.Category category, Demand.Status status, Double lat, Double lng, Double radiusInMeters, Pageable pageable) {
+        return demandRepository.findDemandsWithFilters(category, status, lat, lng, radiusInMeters, pageable);
+    }
+
+    public List<ClusterDto> getHeatmapClusters(double minLat, double maxLat, double minLng, double maxLng) {
+        List<Demand> demands = demandRepository.findWithinBoundingBox(minLat, maxLat, minLng, maxLng);
+        return demands.stream()
+                .filter(d -> d.getLocation() != null)
+                .map(d -> new ClusterDto(d.getLocation().getY(), d.getLocation().getX(), d.getUpvoteCount() + 1))
+                .collect(Collectors.toList());
+    }
 
     public Demand createDemand(Demand demand, List<MultipartFile> files, String userId) {
         demand.setUserId(userId);
