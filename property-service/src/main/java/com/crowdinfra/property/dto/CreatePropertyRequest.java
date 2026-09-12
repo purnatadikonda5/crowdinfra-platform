@@ -1,7 +1,7 @@
 package com.crowdinfra.property.dto;
 
-import com.crowdinfra.property.model.Location;
 import lombok.Data;
+import java.util.List;
 
 @Data
 public class CreatePropertyRequest {
@@ -11,7 +11,10 @@ public class CreatePropertyRequest {
     private String listingType;
     private String ownerName;
     private String contactNumber;
-    private Location location;
+    private Double lat;
+    private Double lng;
+    private String address;
+    private List<String> images;
     private Double price;
     private Double areaSqft;
 }

@@ -5,6 +5,7 @@ import com.crowdinfra.property.model.Property;
 import com.crowdinfra.property.service.PropertyService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.mongodb.core.geo.GeoJsonPoint;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -36,7 +37,7 @@ public class PropertyController {
     }
 
     @GetMapping("/user/me")
-    public ResponseEntity<List<Property>> getMyProperties(@RequestHeader("X-User-Id") String userId, @RequestHeader("X-User-Role") String userRole) {
+    public ResponseEntity<List<Property>> getMyProperties(@RequestHeader("X-User-Id") String userId, @RequestHeader(value = "X-User-Role", defaultValue = "CITIZEN") String userRole) {
         if (!"LANDLORD".equalsIgnoreCase(userRole) && !"ADMIN".equalsIgnoreCase(userRole)) {
             return ResponseEntity.status(403).build();
         }
@@ -44,11 +45,16 @@ public class PropertyController {
     }
 
     @PostMapping
-    public ResponseEntity<Property> createProperty(@RequestHeader("X-User-Id") String userId, @RequestHeader("X-User-Role") String userRole, @RequestBody CreatePropertyRequest request) {
+    public ResponseEntity<Property> createProperty(@RequestHeader("X-User-Id") String userId, @RequestHeader(value = "X-User-Role", defaultValue = "CITIZEN") String userRole, @RequestBody CreatePropertyRequest request) {
         if (!"LANDLORD".equalsIgnoreCase(userRole) && !"ADMIN".equalsIgnoreCase(userRole)) {
             return ResponseEntity.status(403).build();
         }
         
+        GeoJsonPoint location = null;
+        if (request.getLat() != null && request.getLng() != null) {
+            location = new GeoJsonPoint(request.getLng(), request.getLat());
+        }
+
         log.info("Landlord {} is creating a property", userId);
         Property property = Property.builder()
                 .title(request.getTitle())
@@ -57,7 +63,9 @@ public class PropertyController {
                 .listingType(request.getListingType())
                 .ownerName(request.getOwnerName())
                 .contactNumber(request.getContactNumber())
-                .location(request.getLocation())
+                .location(location)
+                .address(request.getAddress())
+                .images(request.getImages())
                 .price(request.getPrice())
                 .areaSqft(request.getAreaSqft())
                 .build();
@@ -72,7 +80,7 @@ public class PropertyController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteProperty(@PathVariable String id, @RequestHeader("X-User-Id") String userId, @RequestHeader("X-User-Role") String userRole) {
+    public ResponseEntity<Void> deleteProperty(@PathVariable String id, @RequestHeader("X-User-Id") String userId, @RequestHeader(value = "X-User-Role", defaultValue = "CITIZEN") String userRole) {
         log.info("User {} is deleting property {}", userId, id);
         propertyService.deleteProperty(id, userId, userRole);
         return ResponseEntity.ok().build();
@@ -83,5 +91,12 @@ public class PropertyController {
         String status = body.get("status");
         log.info("User {} setting status of property {} to {}", userId, id, status);
         return ResponseEntity.ok(propertyService.updateStatus(id, status, userId));
+    }
+
+    @PostMapping("/{id}/inquiry")
+    public ResponseEntity<Void> submitInquiry(@PathVariable String id, @RequestHeader("X-User-Id") String userId, @RequestBody Map<String, String> body) {
+        String message = body.get("message");
+        propertyService.submitInquiry(id, userId, message);
+        return ResponseEntity.ok().build();
     }
 }

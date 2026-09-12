@@ -53,6 +53,8 @@ public class PropertyService {
             if (updatedProperty.getPrice() != null) property.setPrice(updatedProperty.getPrice());
             if (updatedProperty.getAreaSqft() != null) property.setAreaSqft(updatedProperty.getAreaSqft());
             if (updatedProperty.getLocation() != null) property.setLocation(updatedProperty.getLocation());
+            if (updatedProperty.getAddress() != null) property.setAddress(updatedProperty.getAddress());
+            if (updatedProperty.getImages() != null) property.setImages(updatedProperty.getImages());
             if (updatedProperty.getContactNumber() != null) property.setContactNumber(updatedProperty.getContactNumber());
             
             property.setUpdatedAt(LocalDateTime.now());
@@ -81,5 +83,13 @@ public class PropertyService {
             property.setUpdatedAt(LocalDateTime.now());
             return propertyRepository.save(property);
         }).orElseThrow(() -> new RuntimeException("Property not found"));
+    }
+    
+    public void submitInquiry(String id, String userId, String message) {
+        Property property = propertyRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Property not found"));
+        // Simulating sending an email/notification to the owner
+        log.info(">>> INQUIRY ALARM <<< User {} wants to contact Owner {} regarding Property {}. Message: {}", 
+                userId, property.getOwnerId(), property.getId(), message);
     }
 }

@@ -5,10 +5,15 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.geo.GeoJsonPoint;
+import org.springframework.data.mongodb.core.index.GeoSpatialIndexType;
+import org.springframework.data.mongodb.core.index.GeoSpatialIndexed;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 @Builder
@@ -34,7 +39,16 @@ public class Property {
     private String ownerName; // denormalized
     private String contactNumber;
     
-    private Location location;
+    @GeoSpatialIndexed(type = GeoSpatialIndexType.GEO_2DSPHERE)
+    private GeoJsonPoint location;
+    
+    private String address;
+    
+    @Builder.Default
+    private List<String> images = new ArrayList<>();
+    
+    @Builder.Default
+    private int nearbyDemandCount = 0;
     
     private Double price;
     private Double areaSqft;
