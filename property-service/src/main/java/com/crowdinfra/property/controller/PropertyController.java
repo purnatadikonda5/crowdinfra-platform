@@ -5,6 +5,8 @@ import com.crowdinfra.property.model.Property;
 import com.crowdinfra.property.service.PropertyService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.geo.GeoJsonPoint;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -27,6 +29,24 @@ public class PropertyController {
     @GetMapping
     public ResponseEntity<List<Property>> getProperties() {
         return ResponseEntity.ok(propertyService.getAllProperties());
+    }
+    
+    @GetMapping("/search")
+    public ResponseEntity<Page<Property>> searchProperties(
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String listingType,
+            @RequestParam(required = false) Double minPrice,
+            @RequestParam(required = false) Double maxPrice,
+            Pageable pageable) {
+        return ResponseEntity.ok(propertyService.searchProperties(category, listingType, minPrice, maxPrice, pageable));
+    }
+    
+    @GetMapping("/near-demand")
+    public ResponseEntity<List<Property>> getPropertiesNearDemand(
+            @RequestParam Double lat,
+            @RequestParam Double lng,
+            @RequestParam(defaultValue = "5000") Double radius) {
+        return ResponseEntity.ok(propertyService.getPropertiesNearDemand(lat, lng, radius));
     }
 
     @GetMapping("/{id}")

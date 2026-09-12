@@ -7,6 +7,6 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
-public interface PropertyRepository extends MongoRepository<Property, String> {
+public interface PropertyRepository extends MongoRepository<Property, String>, PropertyRepositoryCustom {
     List<Property> findByOwnerId(String ownerId);
 }

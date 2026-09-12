@@ -3,6 +3,8 @@ package com.crowdinfra.property.service;
 import com.crowdinfra.property.model.Property;
 import com.crowdinfra.property.repository.PropertyRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -29,6 +31,14 @@ public class PropertyService {
 
     public List<Property> getPropertiesByOwnerId(String ownerId) {
         return propertyRepository.findByOwnerId(ownerId);
+    }
+    
+    public Page<Property> searchProperties(String category, String listingType, Double minPrice, Double maxPrice, Pageable pageable) {
+        return propertyRepository.searchProperties(category, listingType, minPrice, maxPrice, pageable);
+    }
+    
+    public List<Property> getPropertiesNearDemand(Double lat, Double lng, Double radiusInMeters) {
+        return propertyRepository.findPropertiesNear(lat, lng, radiusInMeters);
     }
 
     public Property createProperty(Property property, String ownerId) {
