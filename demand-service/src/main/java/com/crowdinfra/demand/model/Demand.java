@@ -5,13 +5,10 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.geo.GeoJsonPoint;
-import org.springframework.data.mongodb.core.index.GeoSpatialIndexType;
-import org.springframework.data.mongodb.core.index.GeoSpatialIndexed;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -24,47 +21,30 @@ public class Demand {
     private String id;
     
     private String title;
-    
     private String description;
     
-    private Category category;
+    @Indexed
+    private String category; // INFRASTRUCTURE|HEALTHCARE|EDUCATION|TRANSPORT|UTILITIES|PUBLIC
     
-    private Status status;
+    @Indexed
+    private String status; // PENDING | FULFILLED
     
-    private String userId; // required
+    @Indexed
+    private String userId; // from X-User-Id
     
-    private String userName; // denormalized
+    private String userName; // denormalized snapshot
     
-    @GeoSpatialIndexed(type = GeoSpatialIndexType.GEO_2DSPHERE)
-    private GeoJsonPoint location;
+    private Location location;
     
-    private String address;
+    private int upvoteCount;
+    private List<String> upvotedBy; // userId list
     
-    @Builder.Default
-    private List<String> images = new ArrayList<>();
-    
-    @Builder.Default
-    private int viewCount = 0;
-    
-    @Builder.Default
-    private int upvoteCount = 0;
-    
-    @Builder.Default
-    private List<String> upvotedBy = new ArrayList<>();
+    private int commentCount;
+    private int viewCount;
     
     private String aiAnalysis; // cached Gemini response JSON
-    
     private LocalDateTime aiAnalyzedAt;
     
     private LocalDateTime createdAt;
-    
     private LocalDateTime updatedAt;
-
-    public enum Category {
-        INFRASTRUCTURE, HEALTHCARE, EDUCATION, TRANSPORTATION, UTILITIES, PUBLIC_SERVICE, OTHER
-    }
-
-    public enum Status {
-        PENDING, FULFILLED
-    }
 }

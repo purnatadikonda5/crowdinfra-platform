@@ -1,0 +1,105 @@
+
+services:
+  mongodb:
+    image: mongo:6.0
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - crowdinfra_net
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.0-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - crowdinfra_net
+    restart: unless-stopped
+
+  minio:
+    image: quay.io/minio/minio:latest
+    container_name: minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: password
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - crowdinfra_net
+    restart: unless-stopped
+
+  user-service:
+    build: ./user-service
+    container_name: user-service
+    environment:
+      - SPRING_DATA_MONGODB_URI=mongodb://mongodb:27017/user_db
+      - SPRING_DATA_REDIS_HOST=redis
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - crowdinfra_net
+    restart: unless-stopped
+
+  demand-service:
+    build: ./demand-service
+    container_name: demand-service
+    environment:
+      - SPRING_DATA_MONGODB_URI=mongodb://mongodb:27017/demand_db
+      - SPRING_DATA_REDIS_HOST=redis
+      - GOOGLE_GEMINI_API_KEY=${GOOGLE_GEMINI_API_KEY}
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - crowdinfra_net
+    restart: unless-stopped
+
+  property-service:
+    build: ./property-service
+    container_name: property-service
+    environment:
+      - SPRING_DATA_MONGODB_URI=mongodb://mongodb:27017/property_db
+      - SPRING_DATA_REDIS_HOST=redis
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - crowdinfra_net
+    restart: unless-stopped
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    ports:
+      - "8085:8080"
+    environment:
+      - ROUTE_USER_SERVICE_URI=http://user-service:8081
+      - ROUTE_DEMAND_SERVICE_URI=http://demand-service:8082
+      - ROUTE_PROPERTY_SERVICE_URI=http://property-service:8083
+    depends_on:
+      - user-service
+      - demand-service
+      - property-service
+    networks:
+      - crowdinfra_net
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:
+  redis_data:
+  minio_data:
+
+networks:
+  crowdinfra_net:
+    driver: bridge
