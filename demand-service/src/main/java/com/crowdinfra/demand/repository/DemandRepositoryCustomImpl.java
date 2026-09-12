@@ -21,7 +21,7 @@ public class DemandRepositoryCustomImpl implements DemandRepositoryCustom {
     private final MongoTemplate mongoTemplate;
 
     @Override
-    public Page<Demand> findDemandsWithFilters(Demand.Category category, Demand.Status status, Double lat, Double lng, Double radiusInMeters, Pageable pageable) {
+    public Page<Demand> findDemandsWithFilters(String category, String status, Double lat, Double lng, Double radiusInMeters, Pageable pageable) {
         Query query = new Query();
 
         if (category != null) {

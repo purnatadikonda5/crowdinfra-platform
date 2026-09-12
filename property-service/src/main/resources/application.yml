@@ -1,0 +1,13 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: property-service
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/properties_db
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html

@@ -11,6 +11,13 @@ spring:
     host: localhost
     port: 6379
 
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
 gemini:
   api:
-    key: ${GEMINI_API_KEY:default-key-for-local-dev}
+    key: ${GOOGLE_GEMINI_API_KEY:placeholder-key}
+
+user-service:
+  url: ${ROUTE_USER_SERVICE_URI:http://localhost:8081}

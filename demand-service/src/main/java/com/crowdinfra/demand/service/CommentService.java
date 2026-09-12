@@ -1,33 +1,64 @@
 package com.crowdinfra.demand.service;
 
 import com.crowdinfra.demand.model.Comment;
+import com.crowdinfra.demand.model.Demand;
 import com.crowdinfra.demand.repository.CommentRepository;
-import lombok.RequiredArgsConstructor;
+import com.crowdinfra.demand.repository.DemandRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
+@Slf4j
 @Service
-@RequiredArgsConstructor
 public class CommentService {
 
     private final CommentRepository commentRepository;
+    private final DemandRepository demandRepository;
 
-    public Comment addComment(String demandId, String userId, String text) {
-        Comment comment = Comment.builder()
-                .demandId(demandId)
-                .userId(userId)
-                // Note: In a real system, you might fetch the userName via a sync call to user-service or trust a header.
-                // For now, we store a placeholder or require the client to pass it if denormalizing.
-                .userName("User-" + userId.substring(0, Math.min(userId.length(), 5))) 
-                .text(text)
-                .createdAt(LocalDateTime.now())
-                .build();
-        return commentRepository.save(comment);
+    public CommentService(CommentRepository commentRepository, DemandRepository demandRepository) {
+        this.commentRepository = commentRepository;
+        this.demandRepository = demandRepository;
     }
 
-    public List<Comment> getComments(String demandId) {
-        return commentRepository.findByDemandIdOrderByCreatedAtDesc(demandId);
+    public List<Comment> getCommentsForDemand(String demandId) {
+        return commentRepository.findByDemandId(demandId);
+    }
+
+    public Comment addComment(String demandId, Comment comment, String userId) {
+        Demand demand = demandRepository.findById(demandId)
+                .orElseThrow(() -> new RuntimeException("Demand not found"));
+                
+        comment.setDemandId(demandId);
+        comment.setUserId(userId);
+        comment.setCreatedAt(LocalDateTime.now());
+        
+        Comment savedComment = commentRepository.save(comment);
+        
+        demand.setCommentCount(demand.getCommentCount() + 1);
+        demandRepository.save(demand);
+        
+        log.info("Added comment to demand {}", demandId);
+        return savedComment;
+    }
+
+    public void deleteComment(String id, String userId, String userRole) {
+        Comment comment = commentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Comment not found"));
+                
+        if (!comment.getUserId().equals(userId) && !"ADMIN".equals(userRole)) {
+            throw new RuntimeException("Unauthorized");
+        }
+        
+        String demandId = comment.getDemandId();
+        commentRepository.delete(comment);
+        
+        demandRepository.findById(demandId).ifPresent(demand -> {
+            demand.setCommentCount(Math.max(0, demand.getCommentCount() - 1));
+            demandRepository.save(demand);
+        });
+        
+        log.info("Deleted comment {}", id);
     }
 }

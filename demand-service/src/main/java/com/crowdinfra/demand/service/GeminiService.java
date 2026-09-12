@@ -1,77 +1,91 @@
 package com.crowdinfra.demand.service;
 
 import com.crowdinfra.demand.model.Demand;
-import com.crowdinfra.demand.repository.DemandRepository;
-import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.client.RestClient;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
-import java.util.Map;
 
+@Slf4j
 @Service
-@RequiredArgsConstructor
 public class GeminiService {
-
-    private final RestTemplate restTemplate;
-    private final StringRedisTemplate redisTemplate;
-    private final DemandRepository demandRepository;
 
     @Value("${gemini.api.key}")
     private String apiKey;
 
-    private static final String GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=";
+    private final StringRedisTemplate redisTemplate;
+    private final RestClient restClient;
 
-    public String analyzeDemand(String demandId, boolean forceRefresh) {
-        String cacheKey = "gemini:demand:" + demandId;
+    private static final Duration CACHE_TTL = Duration.ofHours(24);
+    // Use the latest gemini model requested by user
+    private static final String GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent";
 
-        // 1. Check Redis Cache
-        if (!forceRefresh) {
-            String cachedResponse = redisTemplate.opsForValue().get(cacheKey);
-            if (cachedResponse != null) {
-                return cachedResponse;
-            }
-        }
+    public GeminiService(StringRedisTemplate redisTemplate, RestClient.Builder restClientBuilder) {
+        this.redisTemplate = redisTemplate;
+        // Use modern Spring Boot 3 RestClient instead of RestTemplate
+        this.restClient = restClientBuilder.build();
+    }
 
-        // 2. Fetch Demand
-        Demand demand = demandRepository.findById(demandId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Demand not found"));
-
-        // 3. Construct Prompt
-        String prompt = String.format("Provide an executive summary and market potential analysis for the following community demand. " +
-                "Title: %s. Description: %s. Category: %s. " +
-                "Return the response in a structured JSON format with 'executiveSummary' and 'marketPotential' keys.",
-                demand.getTitle(), demand.getDescription(), demand.getCategory());
-
-        // 4. Call Gemini API
-        String requestBody = "{\"contents\":[{\"parts\":[{\"text\":\"" + prompt.replace("\"", "\\\"").replace("\n", " ") + "\"}]}]}";
+    public String analyze(Demand demand) {
+        String cacheKey = "gemini:demand:" + demand.getId();
+        String cached = redisTemplate.opsForValue().get(cacheKey);
         
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
-
-        try {
-            String response = restTemplate.postForObject(GEMINI_API_URL + apiKey, entity, String.class);
-            
-            // 5. Cache in Redis with 24-hour TTL
-            redisTemplate.opsForValue().set(cacheKey, response, Duration.ofHours(24));
-            
-            // 6. Update Demand model
-            demand.setAiAnalysis(response);
-            demand.setAiAnalyzedAt(LocalDateTime.now());
-            demandRepository.save(demand);
-            
-            return response;
-        } catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to analyze demand with AI", e);
+        if (cached != null) {
+            log.info("Returning cached Gemini analysis for demand {}", demand.getId());
+            return cached;
         }
+
+        log.info("Calling Gemini API for demand {}", demand.getId());
+        String prompt = buildPrompt(demand);
+        String result = callGeminiApi(prompt);
+
+        redisTemplate.opsForValue().set(cacheKey, result, CACHE_TTL);
+        return result;
+    }
+
+    public String refreshAnalysis(Demand demand) {
+        String cacheKey = "gemini:demand:" + demand.getId();
+        log.info("Force refreshing Gemini API for demand {}", demand.getId());
+        String prompt = buildPrompt(demand);
+        String result = callGeminiApi(prompt);
+        redisTemplate.opsForValue().set(cacheKey, result, CACHE_TTL);
+        return result;
+    }
+
+    private String callGeminiApi(String prompt) {
+        try {
+            // Build the JSON request body
+            String requestJson = String.format("{\"contents\":[{\"parts\":[{\"text\":\"%s\"}]}]}", prompt.replace("\"", "\\\"").replace("\n", "\\n"));
+
+            // Fluent and clean API call with X-goog-api-key header
+            String response = restClient.post()
+                    .uri(GEMINI_API_URL)
+                    .header("X-goog-api-key", apiKey)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(requestJson)
+                    .retrieve()
+                    .body(String.class);
+
+            return response != null ? response : "{}";
+        } catch (Exception e) {
+            log.error("Error calling Gemini API: {}", e.getMessage());
+            return "{\"error\": \"Failed to analyze demand\"}";
+        }
+    }
+
+    private String buildPrompt(Demand d) {
+        String address = (d.getLocation() != null && d.getLocation().getAddress() != null) ? d.getLocation().getAddress() : "Unknown";
+        return String.format(
+            "Analyze this infrastructure demand as a business consultant. " +
+            "Title: %s | Category: %s | Location: %s | Votes: %d " +
+            "Description: %s " +
+            "Return JSON with: executiveSummary, marketPotential (score 0-100, description), " +
+            "competitiveAnalysis, resourceRequirements, successFactors.",
+            d.getTitle(), d.getCategory(), address, d.getUpvoteCount(), d.getDescription()
+        );
     }
 }

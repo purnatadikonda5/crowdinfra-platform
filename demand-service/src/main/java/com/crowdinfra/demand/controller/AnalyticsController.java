@@ -1,6 +1,8 @@
 package com.crowdinfra.demand.controller;
 
 import com.crowdinfra.demand.service.GeminiService;
+import com.crowdinfra.demand.model.Demand;
+import com.crowdinfra.demand.repository.DemandRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,6 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class AnalyticsController {
 
     private final GeminiService geminiService;
+    private final DemandRepository demandRepository;
 
     @GetMapping("/{id}")
     public ResponseEntity<String> getAnalysis(
@@ -23,7 +26,10 @@ public class AnalyticsController {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only BUSINESS or ADMIN users can access AI analytics");
         }
 
-        String analysis = geminiService.analyzeDemand(id, false);
+        Demand demand = demandRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Demand not found"));
+
+        String analysis = geminiService.analyze(demand);
         return ResponseEntity.ok(analysis);
     }
 
@@ -36,7 +42,10 @@ public class AnalyticsController {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only BUSINESS or ADMIN users can access AI analytics");
         }
 
-        String analysis = geminiService.analyzeDemand(id, true);
+        Demand demand = demandRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Demand not found"));
+
+        String analysis = geminiService.refreshAnalysis(demand);
         return ResponseEntity.ok(analysis);
     }
 }

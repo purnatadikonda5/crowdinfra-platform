@@ -1,118 +1,119 @@
 package com.crowdinfra.demand.service;
 
-import com.crowdinfra.demand.model.ClusterDto;
 import com.crowdinfra.demand.model.Demand;
 import com.crowdinfra.demand.repository.DemandRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Optional;
 
+@Slf4j
 @Service
-@RequiredArgsConstructor
 public class DemandService {
 
     private final DemandRepository demandRepository;
-    private final FileStorageService fileStorageService;
+    private final GeminiService geminiService;
 
-    public Page<Demand> getDemands(Demand.Category category, Demand.Status status, Double lat, Double lng, Double radiusInMeters, Pageable pageable) {
-        return demandRepository.findDemandsWithFilters(category, status, lat, lng, radiusInMeters, pageable);
+    public DemandService(DemandRepository demandRepository, GeminiService geminiService) {
+        this.demandRepository = demandRepository;
+        this.geminiService = geminiService;
     }
 
-    public List<ClusterDto> getHeatmapClusters(double minLat, double maxLat, double minLng, double maxLng) {
-        List<Demand> demands = demandRepository.findWithinBoundingBox(minLat, maxLat, minLng, maxLng);
-        return demands.stream()
-                .filter(d -> d.getLocation() != null)
-                .map(d -> new ClusterDto(d.getLocation().getY(), d.getLocation().getX(), d.getUpvoteCount() + 1))
-                .collect(Collectors.toList());
+    public List<Demand> getAllDemands() {
+        return demandRepository.findAll();
     }
 
-    public Demand createDemand(Demand demand, List<MultipartFile> files, String userId) {
+    public Optional<Demand> getDemandById(String id) {
+        return demandRepository.findById(id).map(demand -> {
+            demand.setViewCount(demand.getViewCount() + 1);
+            return demandRepository.save(demand);
+        });
+    }
+
+    public List<Demand> getDemandsByUserId(String userId) {
+        return demandRepository.findByUserId(userId);
+    }
+
+    public Demand createDemand(Demand demand, String userId) {
         demand.setUserId(userId);
-        demand.setStatus(Demand.Status.PENDING);
+        demand.setStatus("PENDING");
+        demand.setUpvoteCount(0);
+        demand.setUpvotedBy(new ArrayList<>());
+        demand.setCommentCount(0);
+        demand.setViewCount(0);
         demand.setCreatedAt(LocalDateTime.now());
         demand.setUpdatedAt(LocalDateTime.now());
         
-        List<String> imageUrls = new ArrayList<>();
-        if (files != null) {
-            for (MultipartFile file : files) {
-                String url = fileStorageService.uploadFile(file);
-                if (url != null) {
-                    imageUrls.add(url);
-                }
-            }
-        }
-        demand.setImages(imageUrls);
-        
+        log.info("Creating demand for user {}", userId);
         return demandRepository.save(demand);
     }
 
-    public Demand updateDemand(String id, Demand updatedData, String userId, String userRole) {
-        Demand existing = demandRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Demand not found"));
-
-        if (!existing.getUserId().equals(userId) && !"ADMIN".equals(userRole)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have permission to update this demand");
-        }
-
-        existing.setTitle(updatedData.getTitle());
-        existing.setDescription(updatedData.getDescription());
-        existing.setCategory(updatedData.getCategory());
-        existing.setLocation(updatedData.getLocation());
-        existing.setAddress(updatedData.getAddress());
-        existing.setUpdatedAt(LocalDateTime.now());
-        
-        return demandRepository.save(existing);
+    public Demand updateDemand(String id, Demand updatedDemand, String userId) {
+        return demandRepository.findById(id).map(demand -> {
+            if (!demand.getUserId().equals(userId)) {
+                throw new RuntimeException("Unauthorized");
+            }
+            if (updatedDemand.getTitle() != null) demand.setTitle(updatedDemand.getTitle());
+            if (updatedDemand.getDescription() != null) demand.setDescription(updatedDemand.getDescription());
+            if (updatedDemand.getCategory() != null) demand.setCategory(updatedDemand.getCategory());
+            if (updatedDemand.getLocation() != null) demand.setLocation(updatedDemand.getLocation());
+            
+            demand.setUpdatedAt(LocalDateTime.now());
+            return demandRepository.save(demand);
+        }).orElseThrow(() -> new RuntimeException("Demand not found"));
     }
 
     public void deleteDemand(String id, String userId, String userRole) {
-        Demand existing = demandRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Demand not found"));
-
-        if (!existing.getUserId().equals(userId) && !"ADMIN".equals(userRole)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have permission to delete this demand");
+        Demand demand = demandRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Demand not found"));
+                
+        if (!demand.getUserId().equals(userId) && !"ADMIN".equals(userRole)) {
+            throw new RuntimeException("Unauthorized");
         }
-
-        demandRepository.delete(existing);
+        
+        demandRepository.delete(demand);
+        log.info("Deleted demand {}", id);
     }
 
-    public Demand updateStatus(String id, Demand.Status status, String userRole) {
-        if (!"ADMIN".equals(userRole)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only admins can update demand status");
-        }
-
-        Demand existing = demandRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Demand not found"));
-
-        existing.setStatus(status);
-        existing.setUpdatedAt(LocalDateTime.now());
-        return demandRepository.save(existing);
+    public Demand toggleVote(String id, String userId) {
+        return demandRepository.findById(id).map(demand -> {
+            List<String> voters = demand.getUpvotedBy();
+            if (voters == null) {
+                voters = new ArrayList<>();
+            }
+            
+            if (voters.contains(userId)) {
+                voters.remove(userId);
+                demand.setUpvoteCount(Math.max(0, demand.getUpvoteCount() - 1));
+            } else {
+                voters.add(userId);
+                demand.setUpvoteCount(demand.getUpvoteCount() + 1);
+            }
+            demand.setUpvotedBy(voters);
+            return demandRepository.save(demand);
+        }).orElseThrow(() -> new RuntimeException("Demand not found"));
     }
 
-    public Demand toggleUpvote(String id, String userId) {
-        Demand existing = demandRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Demand not found"));
+    public String getAnalysis(String id) {
+        Demand demand = demandRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Demand not found"));
+        return geminiService.analyze(demand);
+    }
 
-        List<String> upvotedBy = existing.getUpvotedBy();
-        if (upvotedBy == null) {
-            upvotedBy = new ArrayList<>();
-        }
-        if (upvotedBy.contains(userId)) {
-            upvotedBy.remove(userId);
-            existing.setUpvoteCount(Math.max(0, existing.getUpvoteCount() - 1));
-        } else {
-            upvotedBy.add(userId);
-            existing.setUpvoteCount(existing.getUpvoteCount() + 1);
-        }
-        existing.setUpvotedBy(upvotedBy);
-        return demandRepository.save(existing);
+    public String refreshAnalysis(String id) {
+        Demand demand = demandRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Demand not found"));
+        return geminiService.refreshAnalysis(demand);
+    }
+
+    public Demand updateStatus(String id, String status) {
+        return demandRepository.findById(id).map(demand -> {
+            demand.setStatus(status);
+            demand.setUpdatedAt(LocalDateTime.now());
+            return demandRepository.save(demand);
+        }).orElseThrow(() -> new RuntimeException("Demand not found"));
     }
 }

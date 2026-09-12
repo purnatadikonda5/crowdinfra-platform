@@ -8,5 +8,5 @@ import java.util.List;
 
 @Repository
 public interface CommentRepository extends MongoRepository<Comment, String> {
-    List<Comment> findByDemandIdOrderByCreatedAtDesc(String demandId);
+    List<Comment> findByDemandId(String demandId);
 }
