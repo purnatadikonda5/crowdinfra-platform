@@ -6,7 +6,7 @@ spring:
     name: property-service
   data:
     mongodb:
-      uri: mongodb://localhost:27017/properties_db
+      uri: ${SPRING_DATA_MONGODB_URI:mongodb://localhost:27017/property_db}
 
 springdoc:
   swagger-ui:

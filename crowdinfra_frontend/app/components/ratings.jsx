@@ -28,6 +28,7 @@ export const InfiniteMovingCards = ({
             <li
               key={idx}
               className='relative w-[350px] max-w-full shrink-0 rounded-2xl border border-zinc-700 bg-zinc-900 px-8 py-6 md:w-[450px]'
+              style={{ whiteSpace: 'normal' }}
             >
               <blockquote>
                 {/* Rating Stars */}
@@ -99,20 +100,29 @@ const CustomerReviewCarousel = () => {
 
   useEffect(() => {
     const fetchReviews = async () => {
-      try {
-        const response = await axios.get(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/rating/reviews`
-        )
-        setReviews(response.data.data)
-      } catch (error) {
-        console.error('Error fetching reviews:', error)
-      }
+      // Stubbed out rating-service since the microservices architecture does not include it yet
+      setReviews([
+        {
+          _id: "1",
+          username: "Alice",
+          rating: 5,
+          review: "Excellent tool for mapping out community infrastructure demands!",
+          createdAt: new Date().toISOString()
+        },
+        {
+          _id: "2",
+          username: "Bob",
+          rating: 4,
+          review: "Really good, love the heatmaps feature.",
+          createdAt: new Date().toISOString()
+        }
+      ])
     }
     fetchReviews()
   }, [])
 
   return (
-    <div className='p-4 sm:p-6 rounded-lg bg-zinc-950 text-white max-w-full sm:max-w-7xl pt-20 mx-auto'>
+    <div className='p-4 sm:p-6 rounded-lg bg-zinc-950 text-white max-w-full sm:max-w-7xl pt-20 mx-auto overflow-hidden'>
       <h1 className='text-center font-extrabold text-2xl sm:text-3xl mb-4 sm:mb-6 text-zinc-200'>
         Our Customer Reviews
       </h1>

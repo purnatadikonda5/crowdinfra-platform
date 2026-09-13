@@ -9,25 +9,51 @@ spring:
       globalcors:
         cors-configurations:
           '[/**]':
-            allowedOrigins: "http://localhost:3000"
-            allowedMethods: "*"
-            allowedHeaders: "*"
+            allowedOrigins:
+              - "http://localhost:3000"
+              - "${ALLOWED_ORIGIN:http://localhost:3000}"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - PATCH
+              - OPTIONS
+            allowedHeaders:
+              - "*"
+            exposedHeaders:
+              - "Set-Cookie"
             allowCredentials: true
       routes:
         - id: user-service
           uri: ${ROUTE_USER_SERVICE_URI:http://localhost:8081}
           predicates:
             - Path=/api/users/**, /api/auth/**
-            
+
+        - id: user-rating-service
+          uri: ${ROUTE_USER_SERVICE_URI:http://localhost:8081}
+          predicates:
+            - Path=/api/user/**
+
+        - id: admin-service
+          uri: ${ROUTE_USER_SERVICE_URI:http://localhost:8081}
+          predicates:
+            - Path=/api/admin/**
+
         - id: demand-service
           uri: ${ROUTE_DEMAND_SERVICE_URI:http://localhost:8082}
           predicates:
-            - Path=/api/demands/**
-            
+            - Path=/api/demands/**, /api/comments/**
+
+        - id: analytics-service
+          uri: ${ROUTE_DEMAND_SERVICE_URI:http://localhost:8082}
+          predicates:
+            - Path=/api/analytics/**
+
         - id: property-service
           uri: ${ROUTE_PROPERTY_SERVICE_URI:http://localhost:8083}
           predicates:
             - Path=/api/properties/**
 
 jwt:
-  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970 # Placeholder 256-bit hex secret
+  secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}

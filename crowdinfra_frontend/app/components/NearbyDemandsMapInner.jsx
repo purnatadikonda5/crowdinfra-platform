@@ -54,7 +54,7 @@ export default function NearbyDemandsMapInner({ onDemandSelect }) {
   const fetchNearbyDemands = async (userLocation) => {
     try {
       const response = await axios.get(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/demands`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8085'}/api/demands`,
         { withCredentials: true }
       )
       

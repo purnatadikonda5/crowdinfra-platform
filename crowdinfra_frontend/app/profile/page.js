@@ -1,440 +1,336 @@
-/* eslint-disable @next/next/no-img-element */
 'use client'
 
 import { useState, useEffect } from 'react'
-import ProfileMap from '../components/ProfileMap'
+import dynamic from 'next/dynamic'
 import Navbar from '../components/navbar'
 import axios from 'axios'
-import { Edit, Phone, MapPin, Calendar, Mail, User, Clock } from 'lucide-react'
-import Image from 'next/image'
-import { LogOut } from 'lucide-react'
+import Link from 'next/link'
+import { LogOut, Mail, MapPin, Phone, Calendar, User, Activity, Building2, Star, ChevronRight, Zap } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
-const containerStyle = {
-  width: '100%',
-  height: '250px',
-}
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8085'
 
-const ProfilePage = () => {
+const ProfileMap = dynamic(() => import('../components/ProfileMap'), { ssr: false, loading: () => <div className="w-full h-full rounded-2xl bg-white/5 animate-pulse" /> })
+
+export default function ProfilePage() {
   const [user, setUser] = useState(null)
   const [mapCenter, setMapCenter] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [activeTab, setActiveTab] = useState('info')
+  const [demands, setDemands] = useState([])
+  const [properties, setProperties] = useState([])
+  const [tabLoading, setTabLoading] = useState(false)
   const router = useRouter()
 
-  // Removed Google Maps useLoadScript
-
-  const handleLogout = async () => {
-    try {
-      await axios.post(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/logout`,
-        {},
-        { withCredentials: true }
-      ) // ✅ Sends request to clear cookie
-      router.push('/auth') // ✅ Redirect to login page
-    } catch (err) {
-      console.error('Logout failed:', err)
-    }
-  }
-
   useEffect(() => {
-    const fetchUserData = async () => {
-      setLoading(true)
-      setError(null)
-
-      try {
-        const response = await axios.get(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/user/profile`,
-          {
-            withCredentials: true,
-          }
-        )
-
-        if (response.status !== 200) {
-          throw new Error('Failed to fetch user data')
-        }
-
-        setUser(response.data)
-
-        // Improved geocoding logic using Nominatim (OpenStreetMap)
-        if (response.data?.address) {
-          try {
-            const geocodeResponse = await axios.get(
-              `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(response.data.address)}`
-            )
-            if (geocodeResponse.data && geocodeResponse.data.length > 0) {
-              setMapCenter({
-                lat: parseFloat(geocodeResponse.data[0].lat),
-                lng: parseFloat(geocodeResponse.data[0].lon),
-              })
-            } else {
-              setMapCenter({ lat: 28.6139, lng: 77.209 })
-              console.warn('Geocoding failed, using default location')
-            }
-          } catch (e) {
-            setMapCenter({ lat: 28.6139, lng: 77.209 })
-            console.warn('Geocoding error, using default location')
-          }
-        } else if (response.data?.location) {
-          // Ensure location is in the correct format
-          setMapCenter(response.data.location)
+    axios.get(`${API}/api/users/me`, { withCredentials: true })
+      .then(res => {
+        setUser(res.data)
+        const addr = res.data?.address
+        if (addr) {
+          axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}`)
+            .then(r => {
+              if (r.data?.[0]) setMapCenter({ lat: parseFloat(r.data[0].lat), lng: parseFloat(r.data[0].lon) })
+              else setMapCenter({ lat: 20.5937, lng: 78.9629 })
+            })
+            .catch(() => setMapCenter({ lat: 20.5937, lng: 78.9629 }))
         } else {
-          // Default location if no address or location is provided
-          setMapCenter({ lat: 28.6139, lng: 77.209 })
+          setMapCenter(res.data?.location || { lat: 20.5937, lng: 78.9629 })
         }
-      } catch (err) {
-        console.error('Error fetching profile:', err)
-        setError(err.message || 'Failed to load profile data')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchUserData()
+      })
+      .catch(err => setError(err.message || 'Failed to load profile'))
+      .finally(() => setLoading(false))
   }, [])
 
-  if (loading) {
-    return (
-      <div className='min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 flex items-center justify-center'>
-        <div className='bg-gray-800/50 backdrop-blur-lg rounded-xl p-8 flex flex-col items-center shadow-lg border border-gray-700/50'>
-          <div className='animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4'></div>
-          <p className='text-white text-lg'>Loading your profile...</p>
-        </div>
-      </div>
-    )
+  // Fetch counts eagerly for stats, regardless of active tab
+  useEffect(() => {
+    axios.get(`${API}/api/demands/user/me`, { withCredentials: true })
+      .then(r => setDemands(r.data || []))
+      .catch(() => {})
+    axios.get(`${API}/api/properties/user/me`, { withCredentials: true })
+      .then(r => setProperties(r.data || []))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (activeTab === 'activity') {
+      setTabLoading(true)
+      axios.get(`${API}/api/demands/user/me`, { withCredentials: true })
+        .then(r => setDemands(r.data || []))
+        .catch(() => {})
+        .finally(() => setTabLoading(false))
+    } else if (activeTab === 'properties') {
+      setTabLoading(true)
+      axios.get(`${API}/api/properties/user/me`, { withCredentials: true })
+        .then(r => setProperties(r.data || []))
+        .catch(() => {})
+        .finally(() => setTabLoading(false))
+    }
+  }, [activeTab])
+
+  const handleLogout = async () => {
+    try { await axios.post(`${API}/api/auth/logout`, {}, { withCredentials: true }) } catch {}
+    router.push('/auth')
   }
 
-  if (error && !user) {
-    return (
-      <div className='min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 flex items-center justify-center'>
-        <div className='bg-gray-800/50 backdrop-blur-lg rounded-xl p-8 flex flex-col items-center shadow-lg border border-gray-700/50 max-w-md'>
-          <div className='bg-red-500/20 p-3 rounded-full mb-4'>
-            <svg
-              xmlns='http://www.w3.org/2000/svg'
-              className='h-6 w-6 text-red-500'
-              fill='none'
-              viewBox='0 0 24 24'
-              stroke='currentColor'
-            >
-              <path
-                strokeLinecap='round'
-                strokeLinejoin='round'
-                strokeWidth={2}
-                d='M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
-              />
-            </svg>
-          </div>
-          <h2 className='text-white text-xl font-semibold mb-2'>
-            Error Loading Profile
-          </h2>
-          <p className='text-gray-300 text-center mb-4'>{error}</p>
-          <button
-            onClick={() => (window.location.href = '/auth')}
-            className='px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors'
-          >
-            Go to Login
-          </button>
-        </div>
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background: '#0a0514' }}>
+      <Navbar />
+      <div className="text-center">
+        <div className="w-16 h-16 rounded-full border-2 border-t-transparent animate-spin mx-auto mb-4" style={{ borderColor: '#a78bfa', borderTopColor: 'transparent' }} />
+        <p className="text-gray-400">Loading your profile...</p>
       </div>
-    )
-  }
+    </div>
+  )
+
+  if (error && !user) return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background: '#0a0514' }}>
+      <Navbar />
+      <div className="text-center p-8 rounded-3xl border border-white/10" style={{ background: 'rgba(167,139,250,0.05)' }}>
+        <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)' }}>
+          <span className="text-2xl">⚠</span>
+        </div>
+        <h2 className="text-white text-xl font-bold mb-2">Error Loading Profile</h2>
+        <p className="text-gray-400 mb-6">{error}</p>
+        <button onClick={() => router.push('/auth')} className="px-6 py-3 rounded-xl font-semibold" style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', color: 'white' }}>
+          Go to Login
+        </button>
+      </div>
+    </div>
+  )
 
   if (!user) return null
 
+  const initials = user.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : '??'
+
+  const TABS = [
+    { id: 'info', label: 'Personal Info', icon: User },
+    { id: 'activity', label: 'My Demands', icon: Activity },
+    { id: 'properties', label: 'Properties', icon: Building2 },
+  ]
+
   return (
-    <div className='min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 py-5 text-white'>
+    <div className="min-h-screen text-white" style={{ background: 'linear-gradient(135deg, #0a0514 0%, #0f0a1e 50%, #070412 100%)' }}>
+      <style>{`
+        @keyframes float-orb { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-30px) scale(1.05)} }
+        @keyframes fade-up { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes glow-ring { 0%,100%{box-shadow:0 0 30px #7c3aed40,0 0 60px #7c3aed20} 50%{box-shadow:0 0 60px #7c3aed80,0 0 120px #7c3aed40} }
+        @keyframes slide-in { from{opacity:0;transform:translateX(-12px)} to{opacity:1;transform:translateX(0)} }
+        @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+        .profile-section { animation: fade-up 0.5s ease forwards; }
+        .demand-card { animation: slide-in 0.4s ease forwards; }
+        .avatar-ring { animation: glow-ring 3s ease infinite; }
+        .tab-active-bar { transition: all 0.3s ease; }
+        ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-thumb { background: #7c3aed40; }
+      `}</style>
+
+      {/* Background orbs */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div style={{ position: 'absolute', top: '-10%', left: '-5%', width: 500, height: 500, background: 'radial-gradient(circle, #7c3aed15 0%, transparent 70%)', animation: 'float-orb 8s ease infinite', filter: 'blur(60px)' }} />
+        <div style={{ position: 'absolute', bottom: '-10%', right: '-5%', width: 400, height: 400, background: 'radial-gradient(circle, #4c1d9510 0%, transparent 70%)', animation: 'float-orb 10s ease infinite 2s', filter: 'blur(50px)' }} />
+      </div>
+
       <Navbar />
 
-      <div className='container mx-auto px-4 py-8'>
-        <div className='max-w-4xl mx-auto'>
-          <div className='bg-gray-800/50 backdrop-blur-lg rounded-3xl shadow-2xl overflow-hidden border border-gray-700/50'>
-            {/* Header Section with Cover Image */}
-            <div className='relative h-48 bg-gradient-to-r from-gray-900 to-black'>
-              <div className='absolute -bottom-16 left-8'>
-                <div className='h-32 w-32 rounded-full border-4 border-gray-800 overflow-hidden shadow-xl hover:border-blue-500 transition-all duration-300 group'>
-                  {console.log(user.profile_image)}
-                  <Image
-                    src={
-                      user.profile_image
-                        ? `${process.env.NEXT_PUBLIC_BACKEND_URL}${user.profile_image}`
-                        : '/default-avatar.png'
-                    }
-                    alt={user.name || 'User Profile'}
-                    width={150}
-                    height={150}
-                    unoptimized={true}
-                    className='h-full w-full object-cover'
-                  />
+      <div className="relative z-10 max-w-5xl mx-auto px-6 pt-24 pb-20">
+
+        {/* Hero Card */}
+        <div className="profile-section rounded-3xl overflow-hidden mb-8 border border-white/5" style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.08) 0%, rgba(15,10,30,0.9) 100%)', boxShadow: '0 30px 80px rgba(124,58,237,0.15)' }}>
+          {/* Cover */}
+          <div className="relative h-40 overflow-hidden" style={{ background: 'linear-gradient(135deg, #1e0a3c 0%, #2d1060 50%, #12073a 100%)' }}>
+            <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 30% 50%, #7c3aed25 0%, transparent 70%)' }} />
+            <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'repeating-linear-gradient(90deg, #7c3aed10 0px, #7c3aed10 1px, transparent 1px, transparent 60px), repeating-linear-gradient(0deg, #7c3aed10 0px, #7c3aed10 1px, transparent 1px, transparent 60px)' }} />
+            {/* Top right logout */}
+            <button onClick={handleLogout} className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:scale-105" style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171' }}>
+              <LogOut className="w-4 h-4" /> Logout
+            </button>
+          </div>
+
+          {/* Avatar overlapping cover */}
+          <div className="px-8 pb-8 relative">
+            <div className="flex flex-col md:flex-row md:items-end md:gap-6" style={{ marginTop: -40 }}>
+              {/* Avatar */}
+              <div className="avatar-ring w-24 h-24 rounded-full flex items-center justify-center text-3xl font-black border-4 border-purple-900 flex-shrink-0" style={{ background: 'linear-gradient(135deg, #7c3aed, #4c1d95)', color: 'white' }}>
+                {user.profile_image ? (
+                  <img src={`${API}${user.profile_image}`} alt={user.name} className="w-full h-full object-cover rounded-full" />
+                ) : initials}
+              </div>
+
+              {/* Name + email */}
+              <div className="mt-4 md:mt-0 md:pb-2 flex-1">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h1 className="text-3xl font-black">{user.name}</h1>
+                  {user.role && (
+                    <span className="px-3 py-0.5 rounded-full text-xs font-bold" style={{ background: 'rgba(124,58,237,0.2)', border: '1px solid rgba(124,58,237,0.4)', color: '#a78bfa' }}>
+                      {user.role}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 mt-1 text-gray-400 text-sm">
+                  <Mail className="w-4 h-4" style={{ color: '#a78bfa' }} />
+                  {user.email}
                 </div>
               </div>
             </div>
 
-            {/* Profile Info */}
-            <div className='pt-20 px-8 pb-8'>
-              <div className='flex flex-col md:flex-row md:justify-between md:items-center'>
-                <div>
-                  <h1 className='text-3xl font-bold text-white mb-1'>
-                    {user.name}
-                  </h1>
-                  <div className='flex items-center text-blue-400'>
-                    <Mail className='h-4 w-4 mr-2' />
-                    <span>{user.email}</span>
-                  </div>
+            {/* Quick stats */}
+            <div className="grid grid-cols-3 gap-4 mt-6">
+              {[
+                { label: 'Demands Raised', value: demands.length || '—', icon: <Zap className="w-4 h-4" /> },
+                { label: 'Properties', value: properties.length || '—', icon: <Building2 className="w-4 h-4" /> },
+                { label: 'Member Since', value: user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : '—', icon: <Calendar className="w-4 h-4" /> },
+              ].map((s, i) => (
+                <div key={i} className="p-4 rounded-2xl border border-white/5 text-center" style={{ background: 'rgba(124,58,237,0.05)' }}>
+                  <div className="flex justify-center mb-1" style={{ color: '#a78bfa' }}>{s.icon}</div>
+                  <p className="text-xl font-black">{s.value}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{s.label}</p>
                 </div>
-                <button
-                  className='flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium
-             bg-red-500 text-white hover:bg-red-600 active:scale-95 
-             transition-all duration-300 shadow-md'
-                  onClick={handleLogout}
-                >
-                  <LogOut size={16} /> <span>Logout</span>
-                </button>
-              </div>
-
-              {/* Tab Navigation */}
-              <div className='flex border-b border-gray-700 mt-8'>
-                <button
-                  className={`px-4 py-2 font-medium ${
-                    activeTab === 'info'
-                      ? 'text-blue-400 border-b-2 border-blue-400'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                  onClick={() => setActiveTab('info')}
-                >
-                  Personal Info
-                </button>
-                <button
-                  className={`px-4 py-2 font-medium ${
-                    activeTab === 'activity'
-                      ? 'text-blue-400 border-b-2 border-blue-400'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                  onClick={() => setActiveTab('activity')}
-                >
-                  Activity
-                </button>
-                <button
-                  className={`px-4 py-2 font-medium ${
-                    activeTab === 'properties'
-                      ? 'text-blue-400 border-b-2 border-blue-400'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                  onClick={() => setActiveTab('properties')}
-                >
-                  Properties
-                </button>
-              </div>
-
-              {/* Content based on active tab */}
-              <div className='mt-6'>
-                {activeTab === 'info' && (
-                  <div className='grid grid-cols-1 md:grid-cols-2 gap-8'>
-                    <div>
-                      <h2 className='text-xl font-semibold mb-4 text-gray-200 border-b border-gray-700 pb-2'>
-                        Personal Information
-                      </h2>
-
-                      <div className='space-y-6'>
-                        <div className='flex items-start'>
-                          <div className='text-blue-400 mr-3'>
-                            <User className='h-5 w-5' />
-                          </div>
-                          <div>
-                            <p className='text-gray-400 text-sm'>Gender</p>
-                            <p className='text-white'>{user.gender}</p>
-                          </div>
-                        </div>
-
-                        <div className='flex items-start'>
-                          <div className='text-blue-400 mr-3'>
-                            <Calendar className='h-5 w-5' />
-                          </div>
-                          <div>
-                            <p className='text-gray-400 text-sm'>Age</p>
-                            <p className='text-white'>{user.age} years</p>
-                          </div>
-                        </div>
-
-                        <div className='flex items-start'>
-                          <div className='text-blue-400 mr-3'>
-                            <Phone className='h-5 w-5' />
-                          </div>
-                          <div>
-                            <p className='text-gray-400 text-sm'>
-                              Phone Number
-                            </p>
-                            <p className='text-white'>{user.phone}</p>
-                          </div>
-                        </div>
-
-                        <div className='flex items-start'>
-                          <div className='text-blue-400 mr-3'>
-                            <Clock className='h-5 w-5' />
-                          </div>
-                          <div>
-                            <p className='text-gray-400 text-sm'>
-                              Member Since
-                            </p>
-                            <p className='text-white'>
-                              {user.joinDate || 'January 2023'}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                    </div>
-
-                    <div>
-                      <h2 className='text-xl font-semibold mb-4 text-gray-200 border-b border-gray-700 pb-2'>
-                        Location
-                      </h2>
-
-                      <div className='flex items-start mb-4'>
-                        <div className='text-blue-400 mr-3'>
-                          <MapPin className='h-5 w-5' />
-                        </div>
-                        <div>
-                          <p className='text-gray-400 text-sm'>Address</p>
-                          <p className='text-white'>{user.address}</p>
-                        </div>
-                      </div>
-
-                      <div className='rounded-xl overflow-hidden shadow-lg border border-gray-700 hover:border-blue-500/50 transition-colors duration-300'>
-                        {mapCenter ? (
-                          <div style={containerStyle}>
-                            <ProfileMap mapCenter={mapCenter} />
-                          </div>
-                        ) : (
-                          <div className='h-64 w-full flex items-center justify-center bg-gray-800'>
-                            <div className='animate-pulse flex flex-col items-center'>
-                              <div className='rounded-full bg-gray-700 h-10 w-10 mb-2'></div>
-                              <div className='h-2 bg-gray-700 rounded w-24'></div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === 'activity' && (
-                  <div>
-                    <h2 className='text-xl font-semibold mb-4 text-gray-200 border-b border-gray-700 pb-2'>
-                      Recent Activity
-                    </h2>
-                    <div className='space-y-4'>
-                      {(
-                        user.recentActivity || [
-                          {
-                            action: 'Viewed property',
-                            description: '3 BHK Apartment in Sector 45',
-                            timestamp: '2 days ago',
-                          },
-                          {
-                            action: 'Created request',
-                            description: 'Looking for commercial space',
-                            timestamp: '1 week ago',
-                          },
-                          {
-                            action: 'Updated profile',
-                            description: 'Changed contact information',
-                            timestamp: '2 weeks ago',
-                          },
-                        ]
-                      ).map((activity, index) => (
-                        <div
-                          key={index}
-                          className='bg-gray-700/30 p-4 rounded-lg border-l-4 border-blue-500 hover:bg-gray-700/50 transition-colors'
-                        >
-                          <div className='flex justify-between'>
-                            <p className='font-medium text-blue-400'>
-                              {activity.action}
-                            </p>
-                            <p className='text-gray-400 text-sm'>
-                              {activity.timestamp}
-                            </p>
-                          </div>
-                          <p className='text-gray-300 mt-1'>
-                            {activity.description}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === 'properties' && (
-                  <div>
-                    <div className='flex justify-between items-center mb-4'>
-                      <h2 className='text-xl font-semibold text-gray-200'>
-                        Your Properties
-                      </h2>
-                      <button className='px-4 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm'>
-                        Add New
-                      </button>
-                    </div>
-
-                    {user.properties > 0 ? (
-                      <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                        {[
-                          {
-                            title: 'Luxury Villa',
-                            location: 'Beverly Hills, CA',
-                            price: '$2,500,000',
-                            image:
-                              'https://source.unsplash.com/400x300/?luxury,villa',
-                          },
-                          {
-                            title: 'Modern Apartment',
-                            location: 'New York City, NY',
-                            price: '$1,200,000',
-                            image:
-                              'https://source.unsplash.com/400x300/?apartment,modern',
-                          },
-                          {
-                            title: 'Beachfront Condo',
-                            location: 'Miami, FL',
-                            price: '$900,000',
-                            image:
-                              'https://source.unsplash.com/400x300/?beach,condo',
-                          },
-                        ].map((property, index) => (
-                          <div
-                            key={index}
-                            className='bg-gray-800/50 border border-gray-700 rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300'
-                          >
-                            <img
-                              src={property.image}
-                              alt={property.title}
-                              className='w-full h-48 object-cover'
-                            />
-                            <div className='p-4'>
-                              <h3 className='text-lg font-semibold text-white'>
-                                {property.title}
-                              </h3>
-                              <p className='text-gray-400'>
-                                {property.location}
-                              </p>
-                              <p className='text-blue-400 font-medium mt-2'>
-                                {property.price}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className='text-gray-400'>No properties listed yet.</p>
-                    )}
-                  </div>
-                )}
-              </div>
+              ))}
             </div>
           </div>
         </div>
+
+        {/* Tabs */}
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
+          {TABS.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => setActiveTab(id)}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold flex-shrink-0 transition-all"
+              style={{
+                background: activeTab === id ? 'rgba(124,58,237,0.2)' : 'rgba(255,255,255,0.04)',
+                border: `1px solid ${activeTab === id ? 'rgba(124,58,237,0.5)' : 'rgba(255,255,255,0.08)'}`,
+                color: activeTab === id ? '#a78bfa' : '#9ca3af',
+                boxShadow: activeTab === id ? '0 0 20px rgba(124,58,237,0.3)' : 'none',
+              }}
+            >
+              <Icon className="w-4 h-4" />
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === 'info' && (
+          <div className="profile-section grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Info Card */}
+            <div className="p-6 rounded-3xl border border-white/5" style={{ background: 'rgba(255,255,255,0.02)' }}>
+              <h2 className="text-lg font-bold mb-5 flex items-center gap-2">
+                <User className="w-5 h-5" style={{ color: '#a78bfa' }} /> Personal Information
+              </h2>
+              <div className="space-y-4">
+                {[
+                  { icon: <User className="w-4 h-4" />, label: 'Full Name', value: user.name },
+                  { icon: <Mail className="w-4 h-4" />, label: 'Email', value: user.email },
+                  { icon: <Phone className="w-4 h-4" />, label: 'Phone', value: user.phone || 'Not provided' },
+                  { icon: <MapPin className="w-4 h-4" />, label: 'Address', value: user.address || 'Not provided' },
+                  { icon: <Calendar className="w-4 h-4" />, label: 'Joined', value: user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' }) : 'Unknown' },
+                ].map((item, i) => (
+                  <div key={i} className="flex items-start gap-3 p-3 rounded-xl border border-white/5" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(124,58,237,0.15)', color: '#a78bfa' }}>
+                      {item.icon}
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 font-medium">{item.label}</p>
+                      <p className="text-sm text-white mt-0.5">{item.value}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Map */}
+            <div className="rounded-3xl overflow-hidden border border-white/5" style={{ minHeight: 300 }}>
+              <div className="px-4 py-3 border-b border-white/5 flex items-center gap-2">
+                <MapPin className="w-4 h-4" style={{ color: '#a78bfa' }} />
+                <span className="text-sm font-semibold">Location</span>
+              </div>
+              <div style={{ height: 280 }}>
+                {mapCenter && <ProfileMap center={mapCenter} />}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'activity' && (
+          <div className="profile-section">
+            {tabLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="rounded-2xl border border-white/5 animate-pulse" style={{ height: 100, background: 'rgba(255,255,255,0.02)' }} />
+                ))}
+              </div>
+            ) : demands.length === 0 ? (
+              <div className="text-center py-20">
+                <Zap className="w-12 h-12 mx-auto mb-4 opacity-20" style={{ color: '#a78bfa' }} />
+                <p className="text-gray-400 text-lg">No demands raised yet</p>
+                <Link href="/raise-request" className="inline-block mt-4 px-6 py-2.5 rounded-xl text-sm font-semibold" style={{ background: 'rgba(124,58,237,0.2)', border: '1px solid rgba(124,58,237,0.4)', color: '#a78bfa' }}>
+                  Raise Your First Demand →
+                </Link>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {demands.map((d, i) => (
+                  <Link key={d.id} href={`/viewrequest?id=${d.id}`}>
+                    <div className="demand-card p-5 rounded-2xl border border-white/5 hover:border-purple-500/30 transition-all cursor-pointer group" style={{ animationDelay: `${i * 0.06}s`, background: 'rgba(124,58,237,0.03)' }}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="px-2 py-0.5 rounded-lg text-xs font-bold" style={{ background: 'rgba(124,58,237,0.15)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.3)' }}>{d.category}</span>
+                        <span className="text-xs text-gray-500">{d.createdAt ? new Date(d.createdAt).toLocaleDateString('en-IN') : ''}</span>
+                      </div>
+                      <h3 className="font-bold text-white group-hover:text-purple-200 transition-colors">{d.title}</h3>
+                      <p className="text-gray-500 text-sm mt-1 line-clamp-2">{d.description}</p>
+                      <div className="flex items-center gap-2 mt-3 text-xs text-gray-500">
+                        <Star className="w-3 h-3" /> {d.upvoteCount || 0} votes
+                        <ChevronRight className="w-3 h-3 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: '#a78bfa' }} />
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'properties' && (
+          <div className="profile-section">
+            {tabLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="rounded-2xl border border-white/5 animate-pulse" style={{ height: 100, background: 'rgba(255,255,255,0.02)' }} />
+                ))}
+              </div>
+            ) : properties.length === 0 ? (
+              <div className="text-center py-20">
+                <Building2 className="w-12 h-12 mx-auto mb-4 opacity-20" style={{ color: '#a78bfa' }} />
+                <p className="text-gray-400 text-lg">No properties listed yet</p>
+                <Link href="/property" className="inline-block mt-4 px-6 py-2.5 rounded-xl text-sm font-semibold" style={{ background: 'rgba(124,58,237,0.2)', border: '1px solid rgba(124,58,237,0.4)', color: '#a78bfa' }}>
+                  List Your First Property →
+                </Link>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {properties.map((p, i) => (
+                  <Link key={p.id} href={`/properties/${p.id}`}>
+                    <div className="demand-card p-5 rounded-2xl border border-white/5 hover:border-purple-500/30 transition-all cursor-pointer group" style={{ animationDelay: `${i * 0.06}s`, background: 'rgba(124,58,237,0.03)' }}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="px-2 py-0.5 rounded-lg text-xs font-bold" style={{ background: 'rgba(124,58,237,0.15)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.3)' }}>{p.category}</span>
+                        <span className="text-xs font-bold" style={{ color: '#00ff88' }}>₹{p.price?.toLocaleString('en-IN')}</span>
+                      </div>
+                      <h3 className="font-bold text-white group-hover:text-purple-200 transition-colors">{p.title}</h3>
+                      <p className="text-gray-500 text-sm mt-1">{p.address}</p>
+                      <div className="flex items-center gap-2 mt-3 text-xs text-gray-500">
+                        <Building2 className="w-3 h-3" /> {p.listingType}
+                        <ChevronRight className="w-3 h-3 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: '#a78bfa' }} />
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
 }
-
-export default ProfilePage

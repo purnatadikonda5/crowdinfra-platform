@@ -44,6 +44,7 @@ services:
     environment:
       - SPRING_DATA_MONGODB_URI=mongodb://mongodb:27017/user_db
       - SPRING_DATA_REDIS_HOST=redis
+      - JWT_SECRET=${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
     depends_on:
       - mongodb
       - redis
@@ -87,6 +88,7 @@ services:
       - ROUTE_USER_SERVICE_URI=http://user-service:8081
       - ROUTE_DEMAND_SERVICE_URI=http://demand-service:8082
       - ROUTE_PROPERTY_SERVICE_URI=http://property-service:8083
+      - JWT_SECRET=${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
     depends_on:
       - user-service
       - demand-service

@@ -38,49 +38,34 @@ const SignupPage = ({ setIsLogin, profilePhoto }) => {
 
     if (!formData.name.trim()) newErrors.name = 'Name is required'
     if (!formData.email.trim()) newErrors.email = 'Email is required'
-    else if (!/\S+@\S+\.\S+/.test(formData.email))
-      newErrors.email = 'Email is invalid'
-
+    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Email is invalid'
+    if (!formData.phone.trim()) newErrors.phone = 'Phone number is required'
     if (!formData.password) newErrors.password = 'Password is required'
-    else if (formData.password.length < 6)
-      newErrors.password = 'Password must be at least 6 characters'
-
-    if (formData.password !== formData.confirmPassword)
-      newErrors.confirmPassword = 'Passwords do not match'
-    if (!formData.agreeTerms)
-      newErrors.agreeTerms = 'You must agree to the Terms and Conditions'
-
-    // Validate OTP length if required
-    if (showOtpInput && !formData.otp.trim()) {
-      newErrors.otp = 'OTP is required'
-    }
+    else if (formData.password.length < 6) newErrors.password = 'Password must be at least 6 characters'
+    if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = 'Passwords do not match'
+    if (!formData.agreeTerms) newErrors.agreeTerms = 'You must agree to the Terms and Conditions'
 
     return newErrors
   }
 
   const sendOtp = async () => {
-    if (!formData.email.trim()) {
-      setErrors({ ...errors, email: 'Email is required' })
-      return
-    }
-
-    // Check email validity using regex before proceeding
-    if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      setErrors({ ...errors, email: 'Email is invalid' })
+    if (!formData.phone.trim()) {
+      setErrors({ ...errors, phone: 'Phone number is required to receive OTP' })
       return
     }
 
     setLoading(true)
     try {
-      // Bypassing real API call for now as requested
-      toast.success("Mock OTP sent! Use 1234 to verify.")
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8085'
+      await axios.post(`${backendUrl}/api/auth/send-otp`, { phone: formData.phone })
+      toast.success('OTP sent to your phone number!')
       setShowOtpInput(true)
-      setFormData(prev => ({ ...prev, otp: '1234' }))
-      setErrors((prev) => ({ ...prev, otp: '' }))
+      setFormData(prev => ({ ...prev, otp: '' }))
+      setErrors((prev) => ({ ...prev, phone: '', otp: '' }))
     } catch (error) {
       setErrors({
         ...errors,
-        email: error.response?.data?.error || 'Failed to send OTP',
+        phone: error.response?.data?.message || 'Failed to send OTP. Please try again.',
       })
     } finally {
       setLoading(false)
@@ -88,23 +73,27 @@ const SignupPage = ({ setIsLogin, profilePhoto }) => {
   }
 
   const verifyOtp = async () => {
+    if (!formData.otp.trim()) {
+      setErrors(prev => ({ ...prev, otp: 'Please enter the OTP' }))
+      return
+    }
+    setLoading(true)
     try {
-      setLoading(true)
-      
-      // Bypassing real API call for now
-      if (formData.otp === '1234') {
-        setEmailVerified(true) // Mark email as verified
-        toast.success('OTP verified successfully')
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8085'
+      const res = await axios.post(`${backendUrl}/api/auth/verify-otp`, {
+        phone: formData.phone,
+        otp: formData.otp,
+      })
+      if (res.data?.verified) {
+        setEmailVerified(true)
+        toast.success('Phone verified successfully!')
       } else {
-        setErrors((prev) => ({
-          ...prev,
-          otp: 'Invalid OTP. Please use 1234',
-        }))
+        setErrors(prev => ({ ...prev, otp: 'Incorrect OTP. Please try again.' }))
       }
     } catch (error) {
-      setErrors((prev) => ({
+      setErrors(prev => ({
         ...prev,
-        otp: error.response?.data?.error || 'OTP verification failed',
+        otp: error.response?.data?.message || 'OTP verification failed',
       }))
     } finally {
       setLoading(false)
@@ -147,7 +136,7 @@ const SignupPage = ({ setIsLogin, profilePhoto }) => {
         console.log(pair[0], pair[1])
       }
 
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8085';
       const response = await axios.post(
         `${backendUrl}/api/auth/signup`,
         formDataWithPhoto,
@@ -162,7 +151,7 @@ const SignupPage = ({ setIsLogin, profilePhoto }) => {
       setIsLogin(true)
     } catch (error) {
       console.error('Registration error:', error)
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8085';
       setErrors({
         submit:
           error.response?.data?.message ||
@@ -193,7 +182,7 @@ const SignupPage = ({ setIsLogin, profilePhoto }) => {
   //     }
 
   //     const response = await axios.post(
-  //       `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/signup`,
+  //       `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8085'}/api/auth/signup`,
   //       formDataWithPhoto,
   //       {
   //         headers: {
@@ -247,43 +236,53 @@ const SignupPage = ({ setIsLogin, profilePhoto }) => {
             )}
           </div>
 
-          {/* Email Field with OTP Button - Fixed Layout */}
+          {/* Email */}
           <div className='col-span-2 md:col-span-1'>
-            <label
-              className='block text-gray-700 dark:text-gray-300 mb-1 text-sm'
-              htmlFor='email'
-            >
+            <label className='block text-gray-700 dark:text-gray-300 mb-1 text-sm' htmlFor='email'>
               Email Address <span className='text-red-500'>*</span>
+            </label>
+            <input
+              type='email'
+              id='email'
+              name='email'
+              value={formData.email}
+              onChange={handleChange}
+              className={`w-full px-3 py-2 dark:bg-gray-800 rounded-lg border ${errors.email ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+              placeholder='your.email@example.com'
+            />
+            {errors.email && <p className='text-red-500 text-xs mt-1'>{errors.email}</p>}
+          </div>
+
+          {/* Phone with OTP */}
+          <div className='col-span-2 md:col-span-1'>
+            <label className='block text-gray-700 dark:text-gray-300 mb-1 text-sm' htmlFor='phone'>
+              Phone Number <span className='text-red-500'>*</span>
             </label>
             <div className='flex flex-col space-y-2'>
               <div className='flex items-center'>
                 <input
-                  type='email'
-                  id='email'
-                  name='email'
-                  value={formData.email}
+                  type='tel'
+                  id='phone'
+                  name='phone'
+                  value={formData.phone}
                   onChange={handleChange}
-                  className={`w-full px-3 py-2 dark:bg-gray-800 rounded-lg border ${
-                    errors.email
-                      ? 'border-red-500'
-                      : 'border-gray-300 dark:border-gray-600'
-                  } focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                  placeholder='your.email@example.com'
+                  className={`w-full px-3 py-2 bg-white dark:bg-gray-800 rounded-lg border ${errors.phone ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                  placeholder='10-digit mobile number'
+                  disabled={emailVerified}
                 />
-                <button
-                  type='button'
-                  onClick={sendOtp}
-                  className='ml-2 px-3 py-2 h-full whitespace-nowrap bg-blue-600 text-sm text-white rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0'
-                  disabled={loading}
-                >
-                  {loading ? 'Sending...' : 'Send OTP'}
-                </button>
+                {!emailVerified && (
+                  <button
+                    type='button'
+                    onClick={sendOtp}
+                    className='ml-2 px-3 py-2 h-full whitespace-nowrap bg-blue-600 text-sm text-white rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0 disabled:opacity-50'
+                    disabled={loading}
+                  >
+                    {loading ? 'Sending...' : showOtpInput ? 'Resend' : 'Send OTP'}
+                  </button>
+                )}
               </div>
-              {errors.email && (
-                <p className='text-red-500 text-xs mt-1'>{errors.email}</p>
-              )}
+              {errors.phone && <p className='text-red-500 text-xs mt-1'>{errors.phone}</p>}
 
-              {/* Conditionally render OTP input and verification */}
               {showOtpInput && !emailVerified && (
                 <div className='w-full'>
                   <input
@@ -292,16 +291,15 @@ const SignupPage = ({ setIsLogin, profilePhoto }) => {
                     name='otp'
                     value={formData.otp}
                     onChange={handleChange}
-                    className='w-full px-3 py-2 dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500'
-                    placeholder='Enter OTP'
+                    maxLength={6}
+                    className='w-full px-3 py-2 dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 tracking-widest text-center text-lg font-mono'
+                    placeholder='Enter 6-digit OTP'
                   />
-                  {errors.otp && (
-                    <p className='text-red-500 text-xs mt-1'>{errors.otp}</p>
-                  )}
+                  {errors.otp && <p className='text-red-500 text-xs mt-1'>{errors.otp}</p>}
                   <button
                     type='button'
                     onClick={verifyOtp}
-                    className='mt-2 px-3 py-2 bg-green-600 text-sm text-white rounded-lg hover:bg-green-700 transition-colors'
+                    className='mt-2 px-4 py-2 bg-green-600 text-sm text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50'
                     disabled={loading}
                   >
                     {loading ? 'Verifying...' : 'Verify OTP'}
@@ -309,32 +307,10 @@ const SignupPage = ({ setIsLogin, profilePhoto }) => {
                 </div>
               )}
 
-              {/* Show confirmation if email is verified */}
               {emailVerified && (
-                <div className='w-full'>
-                  <p className='text-green-600 text-sm mt-1'>Email Verified!</p>
-                </div>
+                <p className='text-green-600 text-sm flex items-center gap-1'>✓ Phone verified!</p>
               )}
             </div>
-          </div>
-
-          {/* Phone */}
-          <div className='col-span-2 md:col-span-1'>
-            <label
-              className='block text-gray-700 dark:text-gray-300 mb-1 text-sm'
-              htmlFor='phone'
-            >
-              Phone Number
-            </label>
-            <input
-              type='tel'
-              id='phone'
-              name='phone'
-              value={formData.phone}
-              onChange={handleChange}
-              className='w-full px-3 py-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500'
-              placeholder='+91 Mobile Number'
-            />
           </div>
 
           {/* Gender */}

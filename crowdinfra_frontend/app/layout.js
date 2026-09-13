@@ -12,7 +12,8 @@ import 'react-toastify/dist/ReactToastify.css'
 import { useState } from 'react'
 import Cursor from './components/ui/cursor'
 import ClickSpark from './components/ui/ClickSpark'
-// import { useLoadScript } from "@react-google-maps/api"
+import { APIProvider } from '@vis.gl/react-google-maps'
+import NavigationProgress from './components/NavigationProgress'
 
 // const libraries = ["places"] // Declare globally
 
@@ -89,19 +90,15 @@ export default function RootLayout({ children }) {
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <UserProvider>
-          <ClickSpark
-            sparkColor='#fff'
-            sparkSize={10}
-            sparkRadius={15}
-            sparkCount={8}
-            duration={400}
-          >
-          <ToastContainer position='top-right' autoClose={3000} />
-            {children}
-            {/* Your content here */}
-          </ClickSpark>
-        </UserProvider>
+        <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}>
+          <UserProvider>
+            <ClickSpark sparkColor='#fff' sparkSize={10} sparkRadius={15} sparkCount={8} duration={400}>
+              <NavigationProgress />
+              <ToastContainer position='top-right' autoClose={3000} />
+              {children}
+            </ClickSpark>
+          </UserProvider>
+        </APIProvider>
       </body>
     </html>
   )

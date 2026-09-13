@@ -6,9 +6,9 @@ spring:
     name: demand-service
   data:
     mongodb:
-      uri: mongodb://localhost:27017/demands_db
+      uri: ${SPRING_DATA_MONGODB_URI:mongodb://localhost:27017/demand_db}
   redis:
-    host: localhost
+    host: ${SPRING_DATA_REDIS_HOST:localhost}
     port: 6379
 
 springdoc:

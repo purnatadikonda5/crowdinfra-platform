@@ -3,7 +3,7 @@ const nextConfig = {
   images: {
     remotePatterns: [{ protocol: 'https', hostname: 'freesvg.org' }],
   },
-  reactStrictMode: false, // Disables Strict Mode
+  reactStrictMode: false,
 }
 
 export default nextConfig

@@ -88,17 +88,17 @@ public class DemandController {
     }
 
     @GetMapping("/{id}/analysis")
-    public ResponseEntity<String> getAnalysis(@PathVariable String id, @RequestHeader("X-User-Role") String userRole) {
-        if (!"BUSINESS".equalsIgnoreCase(userRole) && !"ADMIN".equalsIgnoreCase(userRole)) {
-            return ResponseEntity.status(403).body("{\"error\": \"Unauthorized role\"}");
+    public ResponseEntity<String> getAnalysis(@PathVariable String id, @RequestHeader(value = "X-User-Id", required = false) String userId) {
+        if (userId == null || userId.isBlank()) {
+            return ResponseEntity.status(401).body("{\"error\": \"Login required\"}");
         }
         return ResponseEntity.ok(demandService.getAnalysis(id));
     }
 
     @PostMapping("/{id}/analysis/refresh")
-    public ResponseEntity<String> refreshAnalysis(@PathVariable String id, @RequestHeader("X-User-Role") String userRole) {
-        if (!"BUSINESS".equalsIgnoreCase(userRole) && !"ADMIN".equalsIgnoreCase(userRole)) {
-            return ResponseEntity.status(403).body("{\"error\": \"Unauthorized role\"}");
+    public ResponseEntity<String> refreshAnalysis(@PathVariable String id, @RequestHeader(value = "X-User-Id", required = false) String userId) {
+        if (userId == null || userId.isBlank()) {
+            return ResponseEntity.status(401).body("{\"error\": \"Login required\"}");
         }
         return ResponseEntity.ok(demandService.refreshAnalysis(id));
     }

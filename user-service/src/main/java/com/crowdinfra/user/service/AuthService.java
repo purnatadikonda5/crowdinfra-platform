@@ -10,6 +10,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -38,13 +39,16 @@ public class AuthService {
 
         String hash = BCrypt.hashpw(request.getPassword(), BCrypt.gensalt());
 
+        com.crowdinfra.user.model.Role assignedRole = request.getRole() != null ? request.getRole() : com.crowdinfra.user.model.Role.CITIZEN;
+
         User user = User.builder()
                 .email(request.getEmail())
                 .phone(request.getPhone())
                 .name(request.getName())
                 .passwordHash(hash)
-                .role(request.getRole())
+                .role(assignedRole)
                 .isEmailVerified(false)
+                .createdAt(LocalDateTime.now())
                 .build();
 
         user = userRepository.save(user);
@@ -60,7 +64,8 @@ public class AuthService {
             throw new RuntimeException("Invalid credentials");
         }
 
-        String accessToken = jwtService.generateAccessToken(user.getId(), user.getRole().name());
+        String roleName = user.getRole() != null ? user.getRole().name() : "CITIZEN";
+        String accessToken = jwtService.generateAccessToken(user.getId(), roleName);
         String refreshToken = jwtService.generateRefreshToken(user.getId());
 
         String refreshHash = BCrypt.hashpw(refreshToken, BCrypt.gensalt());

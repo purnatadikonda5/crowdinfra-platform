@@ -49,12 +49,12 @@ const LoginPage = ({ setIsLogin }) => {
       setIsSubmitting(true)
       try {
         const response = await axios.post(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/login`,
+          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8085'}/api/auth/login`,
           formData,
           { withCredentials: true }
         )
         console.log('Login response:', response.data)
-        if (response.data && response.data.success) {
+        if (response.data && response.data.accessToken) {
           toast.success('Login successful! Redirecting to home...')
           setIsLogin(true)
           router.push('/')

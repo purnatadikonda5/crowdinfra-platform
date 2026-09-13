@@ -1,0 +1,138 @@
+--- app/search-demands/page.js
++++ app/search-demands/page.js
+@@ -46,12 +46,11 @@
+     const fetchDemands = async () => {
+       try {
+         setLoading(true)
+-        const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/demands`
++        const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8085'}/api/demand?size=100`
+ 
+         const response = await axios.get(url, { withCredentials: true })
+-        console.log(response.data)
+-        setDemands(response.data)
+-        setFilteredDemands(response.data)
++        setDemands(response.data.content || [])
++        setFilteredDemands(response.data.content || [])
+         setLoading(false)
+       } catch (err) {
+         console.error('Error fetching demands:', err)
+@@ -66,7 +65,7 @@
+   // Filter demands when location or category changes
+   useEffect(() => {
+     filterDemands()
+-  }, [businessCategory, demands, selectedLocation])
++  }, [businessCategory, demands, selectedLocation]) // Removed comments dependency if any
+ 
+   // Update selected location when place changes
+   useEffect(() => {
+@@ -87,8 +86,8 @@
+       const maxDistance = 0.1 // roughly ~11km
+       filtered = filtered.filter((demand) => {
+         // Correctly extract coordinates
+-        const demandLat = demand.location.lat
+-        const demandLng = demand.location.lng
++        const demandLat = demand.location?.y || demand.location?.lat
++        const demandLng = demand.location?.x || demand.location?.lng
+ 
+         const distance = Math.sqrt(
+           Math.pow(demandLat - selectedLocation.lat, 2) +
+@@ -108,13 +107,31 @@
+   }
+ 
+   const handleMarkerClick = (demand) => {
+     setSelectedDemand(demand)
++    fetchComments(demand.id)
+   }
++  
++  const [comments, setComments] = useState([])
++
++  const fetchComments = async (demandId) => {
++      try {
++        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8085'}/api/comments/${demandId}`, { withCredentials: true })
++        setComments(res.data || [])
++      } catch (err) {
++        console.error("Failed to fetch comments", err)
++      }
++  }
+ 
+   const handleUpvote = async (demandId) => {
+     try {
+       const response = await axios.post(
+-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/demands/${demandId}/vote`,
++        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8085'}/api/demand/${demandId}/vote`,
+         {},
+         {
+           withCredentials: true, // Ensure cookies are sent with the request
+@@ -144,21 +161,16 @@
+     try {
+       // Make a POST request to the backend to add the comment.
+       const response = await axios.post(
+-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/demands/${demandId}/comments`,
++        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8085'}/api/comments/${demandId}`,
+         { text: newComment },
+         { withCredentials: true } // Ensures cookies (and auth) are sent.
+       )
+ 
+-      // The backend returns the updated demand with the new comment.
+-      const updatedDemand = response.data
+-
+-      // Update the selected demand if it's the one we just commented on.
+-      if (selectedDemand && selectedDemand.id === demandId) {
+-        setSelectedDemand(updatedDemand)
+-      }
+-
+-      // Also update the overall demands list.
+-      setDemands((prev) =>
+-        prev.map((d) => (d.id === demandId ? updatedDemand : d))
+-      )
++      setComments([response.data, ...comments])
+ 
+       // Clear the new comment input.
+       setNewComment('')
+@@ -207,13 +219,13 @@
+                 onChange={(e) => setBusinessCategory(e.target.value)}
+               >
+                 <option value='all'>infrastructure</option>
+-                <option value='restaurant'>public service</option>
+-                <option value='retail'>transportation</option>
+-                <option value='medical'>utilities</option>
+-                <option value='education'>education</option>
+-                <option value='entertainment'>healthcare</option>
+-                <option value='services'>other</option>
++                <option value='PUBLIC_SERVICE'>public service</option>
++                <option value='TRANSPORTATION'>transportation</option>
++                <option value='UTILITIES'>utilities</option>
++                <option value='EDUCATION'>education</option>
++                <option value='HEALTHCARE'>healthcare</option>
++                <option value='OTHER'>other</option>
+               </select>
+             </div>
+           </div>
+@@ -291,14 +303,14 @@
+                     </h3>
+ 
+                     <div className='space-y-3 mb-4 max-h-60 overflow-y-auto'>
+-                      {(selectedDemand.comments || []).map((comment, index) => (
++                      {comments.map((comment, index) => (
+                         <div
+-                          key={index}
++                          key={comment.id || index}
+                           className='bg-gray-800/50 p-3 rounded-lg'
+                         >
+                           <div className='flex justify-between text-sm text-gray-400 mb-1'>
+-                            <span>{comment.user}</span>
++                            <span>{comment.userName}</span>
+                             <span>
+-                              {new Date(comment.timestamp).toLocaleString()}
++                              {new Date(comment.createdAt).toLocaleString()}
+                             </span>
+                           </div>
+                           <p className='text-gray-200'>{comment.text}</p>
+                         </div>
+                       ))}
+ 
+-                      {(selectedDemand.comments || []).length === 0 && (
++                      {comments.length === 0 && (
+                         <p className='text-gray-500 text-center py-2'>
+                           No comments yet
+                         </p>

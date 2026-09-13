@@ -57,18 +57,12 @@ public class PropertyController {
     }
 
     @GetMapping("/user/me")
-    public ResponseEntity<List<Property>> getMyProperties(@RequestHeader("X-User-Id") String userId, @RequestHeader(value = "X-User-Role", defaultValue = "CITIZEN") String userRole) {
-        if (!"LANDLORD".equalsIgnoreCase(userRole) && !"ADMIN".equalsIgnoreCase(userRole)) {
-            return ResponseEntity.status(403).build();
-        }
+    public ResponseEntity<List<Property>> getMyProperties(@RequestHeader("X-User-Id") String userId) {
         return ResponseEntity.ok(propertyService.getPropertiesByOwnerId(userId));
     }
 
     @PostMapping
     public ResponseEntity<Property> createProperty(@RequestHeader("X-User-Id") String userId, @RequestHeader(value = "X-User-Role", defaultValue = "CITIZEN") String userRole, @RequestBody CreatePropertyRequest request) {
-        if (!"LANDLORD".equalsIgnoreCase(userRole) && !"ADMIN".equalsIgnoreCase(userRole)) {
-            return ResponseEntity.status(403).build();
-        }
         
         GeoJsonPoint location = null;
         if (request.getLat() != null && request.getLng() != null) {

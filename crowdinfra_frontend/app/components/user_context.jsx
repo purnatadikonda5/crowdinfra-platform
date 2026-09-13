@@ -2,7 +2,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react'
 import axios from 'axios'
 import { useRouter } from 'next/navigation'
-import Cookies from 'js-cookie'
 
 const UserContext = createContext()
 
@@ -17,41 +16,35 @@ export const UserProvider = ({ children }) => {
   const [user, setUser] = useState(null) // Track logged-in user
   const router = useRouter()
 
-  // Verify user authentication
+  // Verify user authentication — backend uses httpOnly cookie, so just call /api/users/me
   useEffect(() => {
     const verifyUser = async () => {
-      const token = Cookies.get('crowdInfra_token') // Get token from cookies
-      if (!token) {
-        // router.push('/landing') // Redirect if token is missing
-        return
-      }
-
       try {
         const response = await axios.get(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/verify`,
-          {
-            withCredentials: true, // Ensure cookies are sent
-          }
+          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8085'}/api/users/me`,
+          { withCredentials: true }
         )
-
-        if (response.data.valid) {
-          setUser(response.data.user) // Store user data
-        } else {
-          // router.push('/landing') // Redirect if invalid token
+        if (response.data && response.data.id) {
+          setUser(response.data)
         }
-      } catch (error) {
-        // router.push('/landing') // Redirect on error
+      } catch {
+        // not logged in — silent
       }
     }
-
     verifyUser()
-  }, [router])
+  }, [])
 
   // Logout function
-  const logout = () => {
-    Cookies.remove('crowdInfra_token') // Remove token
-    setUser(null) // Clear user state
-    // router.push('/landing') // Redirect to login page
+  const logout = async () => {
+    try {
+      await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8085'}/api/auth/logout`,
+        {},
+        { withCredentials: true }
+      )
+    } catch { /* ignore */ }
+    setUser(null)
+    router.push('/auth')
   }
 
   return (
